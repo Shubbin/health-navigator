@@ -8,35 +8,53 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* HealScope NG Design System - Light Mode */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 20%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Medical Blue for trust and professionalism */
+    --primary: 207 77% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 207 77% 92%;
+    
+    /* Secondary - Health Green for success and wellness */
+    --secondary: 123 40% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 123 40% 92%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Alert Orange for warnings and notifications */
+    --accent: 43 100% 50%;
+    --accent-foreground: 0 0% 20%;
+    --accent-light: 43 100% 92%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Muted backgrounds and borders */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 207 77% 52%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    
+    /* Custom health-specific colors */
+    --success: 123 40% 45%;
+    --warning: 43 100% 50%;
+    --info: 207 77% 52%;
+    
+    /* Confidence meter colors */
+    --confidence-low: 0 84% 60%;
+    --confidence-medium: 43 100% 50%;
+    --confidence-high: 123 40% 45%;
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,33 +74,44 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 10%;
+    --foreground: 0 0% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 207 77% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 207 77% 20%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 123 40% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 123 40% 20%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 43 100% 50%;
+    --accent-foreground: 0 0% 20%;
+    --accent-light: 43 100% 20%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 207 77% 52%;
+    
+    --success: 123 40% 45%;
+    --warning: 43 100% 50%;
+    --info: 207 77% 52%;
+    
+    --confidence-low: 0 84% 60%;
+    --confidence-medium: 43 100% 50%;
+    --confidence-high: 123 40% 45%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -100,6 +129,67 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  /* Health Status Colors */
+  .status-success {
+    @apply bg-secondary/10 text-secondary border-secondary/20;
+  }
+  
+  .status-warning {
+    @apply bg-accent/10 text-accent border-accent/20;
+  }
+  
+  .status-info {
+    @apply bg-primary/10 text-primary border-primary/20;
+  }
+  
+  /* Confidence Meter */
+  .confidence-low {
+    @apply bg-[hsl(var(--confidence-low))];
+  }
+  
+  .confidence-medium {
+    @apply bg-[hsl(var(--confidence-medium))];
+  }
+  
+  .confidence-high {
+    @apply bg-[hsl(var(--confidence-high))];
+  }
+  
+  /* Smooth Animations */
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
