@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
+import api from "@/lib/api";
+import { toast } from "sonner";
+
 const Signup = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
@@ -17,25 +20,54 @@ const Signup = () => {
         agreeToTerms: false,
     });
     const navigate = useNavigate();
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
-            alert("Passwords don't match!");
+            toast.error("Passwords don't match!");
             return;
         }
         if (!formData.agreeToTerms) {
-            alert("Please agree to the terms and conditions");
+            toast.error("Please agree to the terms and conditions");
             return;
         }
-        // TODO: Implement actual registration
-        localStorage.setItem("isAuthenticated", "true");
-        localStorage.setItem("user", JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            avatar: null,
-        }));
-        navigate("/");
+
+        setIsLoading(true);
+        try {
+            const response = await api.post("/auth/signup", {
+                email: formData.email,
+                password: formData.password,
+                name: formData.name
+            });
+
+            if (response.data.success) {
+                toast.success("Account created successfully");
+                // Auto login after signup since we disabled verification
+                // Or just redirect to login if auto-login logic isn't in signup response (it usually returns user but maybe not cookie if not explicitly set in signup controller? 
+                // Looking at auth.controller.js: signup does NOT set cookie, only login does. 
+                // So we should redirect to login or auto-login here. 
+                // Let's redirect to login for simplicity or call login immediately.
+                // Actually, let's call login immediately for better UX.
+
+                try {
+                    await api.post("/auth/login", {
+                        email: formData.email,
+                        password: formData.password
+                    });
+                    localStorage.setItem("user", JSON.stringify(response.data.user));
+                    navigate("/");
+                } catch (loginError) {
+                    // If auto-login fails, redirect to login page
+                    navigate("/login");
+                }
+            }
+        } catch (error) {
+            console.error("Signup error:", error);
+            toast.error(error.response?.data?.message || "Failed to create account");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

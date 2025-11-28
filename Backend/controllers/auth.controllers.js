@@ -6,7 +6,7 @@ import {
   sendResetSuccessEmail,
   sendVerificationEmail,
   sendWelcomeEmail,
-} from "../mailtrap/email.js";
+} from "../mail/email.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenSetCookie.js";
 
 
@@ -37,7 +37,13 @@ export const signup = async (req, res) => {
 
     await user.save();
 
-    await sendVerificationEmail(user.email, verificationToken);
+    // await sendVerificationEmail(user.email, verificationToken);
+
+    // Auto-verify for now
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpiresAt = undefined;
+    await user.save();
 
     res.status(201).json({
       success: true,
@@ -70,7 +76,7 @@ export const verifyEmail = async (req, res) => {
     user.verificationTokenExpiresAt = undefined;
     await user.save();
 
-    await sendWelcomeEmail(user.email, user.name);
+    // await sendWelcomeEmail(user.email, user.name);
 
     res.status(200).json({
       success: true,
@@ -140,7 +146,8 @@ export const forgotPassword = async (req, res) => {
     user.passwordResetExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    await sendPasswordResetEmail(email, resetToken);
+    // await sendPasswordResetEmail(email, resetToken);
+    console.log(`[DEV] Password reset token for ${email}: ${resetToken}`); // Log for dev testing
 
     res.status(200).json({
       success: true,
@@ -172,7 +179,7 @@ export const resetPassword = async (req, res) => {
 
     await user.save();
 
-    await sendResetSuccessEmail(user.email);
+    // await sendResetSuccessEmail(user.email);
 
     res.status(200).json({
       success: true,

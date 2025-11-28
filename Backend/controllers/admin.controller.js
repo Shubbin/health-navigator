@@ -1,5 +1,4 @@
 import { User } from '../models/User.js';
-import { Criminal } from '../models/Criminal.js';
 
 export const searchUsers = async (req, res) => {
   const { query } = req.query;
@@ -27,7 +26,7 @@ export const updateUserRole = async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
-  if (!["user", "police", "admin"].includes(role)) {
+  if (!["user", "admin", "superAdmin"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
   }
 
@@ -45,4 +44,3 @@ export const getUsers = async (req, res) => {
 };
 
 
-// Similarly add CRUD operations for Criminals

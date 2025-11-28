@@ -1,99 +1,74 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Scan, Calendar, Newspaper, Eye, Filter, Download } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/lib/api";
+import { toast } from "sonner";
 
 const History = () => {
     const [activeTab, setActiveTab] = useState("scans");
+    const [scanHistory, setScanHistory] = useState([]);
+    const [medicationHistory, setMedicationHistory] = useState([]);
+    const [readingHistory, setReadingHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    // Mock data - replace with real data from backend
-    const scanHistory = [
-        {
-            id: 1,
-            type: "Eye Scan",
-            date: "2024-01-25",
-            time: "10:30 AM",
-            result: "Healthy",
-            status: "success",
-            notes: "Minor eye strain detected. Consider reducing screen time.",
-        },
-        {
-            id: 2,
-            type: "Dental Scan",
-            date: "2024-01-20",
-            time: "2:15 PM",
-            result: "Minor Issues",
-            status: "warning",
-            notes: "Slight discoloration on molars. Schedule dental checkup.",
-        },
-        {
-            id: 3,
-            type: "Skin Scan",
-            date: "2024-01-15",
-            time: "4:45 PM",
-            result: "Healthy",
-            status: "success",
-            notes: "No anomalies detected. Maintain current skincare routine.",
-        },
-    ];
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [scansRes, medsRes, readingRes] = await Promise.all([
+                    api.get("/health-scans"),
+                    api.get("/medications"),
+                    api.get("/reading-history")
+                ]);
 
-    const medicationHistory = [
-        {
-            id: 1,
-            medication: "Vitamin D",
-            dosage: "1000 IU",
-            frequency: "Daily",
-            startDate: "2024-01-01",
-            status: "Active",
-            adherence: 95,
-        },
-        {
-            id: 2,
-            medication: "Paracetamol",
-            dosage: "500mg",
-            frequency: "As needed",
-            startDate: "2024-01-20",
-            endDate: "2024-01-27",
-            status: "Completed",
-            adherence: 100,
-        },
-        {
-            id: 3,
-            medication: "Eye Drops",
-            dosage: "2 drops",
-            frequency: "Twice daily",
-            startDate: "2024-01-10",
-            status: "Active",
-            adherence: 88,
-        },
-    ];
+                if (scansRes.data.success) {
+                    setScanHistory(scansRes.data.scans.map(scan => ({
+                        id: scan._id,
+                        type: scan.scanType === 'eyes' ? 'Eye Scan' : scan.scanType === 'teeth' ? 'Dental Scan' : 'Skin Scan',
+                        date: new Date(scan.createdAt).toLocaleDateString(),
+                        time: new Date(scan.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        result: scan.result,
+                        status: scan.status,
+                        notes: scan.notes
+                    })));
+                }
 
-    const readingHistory = [
-        {
-            id: 1,
-            title: "Understanding Eye Health: Common Signs of Strain",
-            category: "Eye Health",
-            dateRead: "2024-01-25",
-            readTime: "5 min",
-        },
-        {
-            id: 2,
-            title: "Medication Adherence: Why It Matters",
-            category: "Wellness",
-            dateRead: "2024-01-22",
-            readTime: "4 min",
-        },
-        {
-            id: 3,
-            title: "Preventive Care for Young Adults in Nigeria",
-            category: "Preventive Care",
-            dateRead: "2024-01-18",
-            readTime: "7 min",
-        },
-    ];
+                if (medsRes.data.success) {
+                    setMedicationHistory(medsRes.data.medications.map(med => ({
+                        id: med._id,
+                        medication: med.name,
+                        dosage: med.dosage,
+                        frequency: med.frequency,
+                        startDate: new Date(med.startDate).toLocaleDateString(),
+                        endDate: med.endDate ? new Date(med.endDate).toLocaleDateString() : null,
+                        status: med.status || "Active", // Default to Active if not present
+                        adherence: med.adherence || 0 // Default to 0 if not present
+                    })));
+                }
+
+                if (readingRes.data.success) {
+                    setReadingHistory(readingRes.data.history.map(item => ({
+                        id: item._id,
+                        title: item.title,
+                        category: item.category,
+                        dateRead: new Date(item.dateRead).toLocaleDateString(),
+                        readTime: item.readTime
+                    })));
+                }
+            } catch (error) {
+                console.error("Error fetching history:", error);
+                toast.error("Failed to load history");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     return (
         <div className="h-screen overflow-y-auto bg-muted/30">

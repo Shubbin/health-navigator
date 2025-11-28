@@ -9,22 +9,74 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
+import api from "@/lib/api";
+import { toast } from "sonner";
+import { useEffect } from "react";
+
 const Profile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [profile, setProfile] = useState({
-        name: "John Doe",
-        email: "john.doe@example.com",
-        phone: "+234 123 456 7890",
-        dateOfBirth: "1990-01-15",
-        location: "Lagos, Nigeria",
-        bio: "Health enthusiast focused on preventive care and wellness",
+        name: "",
+        email: "",
+        phone: "",
+        dateOfBirth: "",
+        location: "",
+        bio: "",
         avatar: null,
     });
 
-    const handleSave = () => {
-        // TODO: Save profile to backend
-        localStorage.setItem("user", JSON.stringify(profile));
-        setIsEditing(false);
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        try {
+            const response = await api.get("/auth/check-auth");
+            if (response.data.success) {
+                const user = response.data.user;
+                setProfile({
+                    name: user.name || "",
+                    email: user.email || "",
+                    phone: user.phoneNumber || "",
+                    dateOfBirth: user.dob ? new Date(user.dob).toISOString().split('T')[0] : "",
+                    location: user.address || "",
+                    bio: user.bio || "", // Assuming bio field exists or we add it to model, otherwise it will just be ignored by backend
+                    avatar: null,
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+            // toast.error("Failed to load profile"); // Suppress error on initial load if not auth
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            const response = await api.put("/users/profile", {
+                name: profile.name,
+                phoneNumber: profile.phone,
+                dob: profile.dateOfBirth,
+                address: profile.location,
+                // bio: profile.bio, // Add to model if needed
+            });
+
+            toast.success("Profile updated successfully");
+            setIsEditing(false);
+
+            // Update local state with returned user data to ensure sync
+            const user = response.data.user;
+            setProfile(prev => ({
+                ...prev,
+                name: user.name || prev.name,
+                phone: user.phoneNumber || prev.phone,
+                dateOfBirth: user.dob ? new Date(user.dob).toISOString().split('T')[0] : prev.dateOfBirth,
+                location: user.address || prev.location,
+            }));
+
+        } catch (error) {
+            console.error("Error saving profile:", error);
+            toast.error("Failed to save profile");
+        }
     };
 
     const stats = [

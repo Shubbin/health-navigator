@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import FloatingChat from "@/components/chat/FloatingChat";
 
 const AppLayout = ({ children }) => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -34,7 +35,7 @@ const AppLayout = ({ children }) => {
     ]);
 
     const navigation = [
-        { name: "AI Chat", href: "/", icon: MessageSquare },
+        { name: "Home", href: "/", icon: MessageSquare },
         { name: "Health Scanner", href: "/scanner", icon: Scan },
         { name: "MedBuddy", href: "/medbuddy", icon: Calendar },
         { name: "Health Blog", href: "/blog", icon: Newspaper },
@@ -202,6 +203,7 @@ const AppLayout = ({ children }) => {
             <main className="flex-1 overflow-hidden">
                 {children}
             </main>
+            <FloatingChat />
         </div>
     );
 };

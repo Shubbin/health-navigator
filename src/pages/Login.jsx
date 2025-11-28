@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import api from "@/lib/api";
+import { toast } from "sonner";
+
 const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
@@ -13,17 +16,27 @@ const Login = () => {
         password: "",
     });
     const navigate = useNavigate();
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // TODO: Implement actual authentication
-        localStorage.setItem("isAuthenticated", "true");
-        localStorage.setItem("user", JSON.stringify({
-            name: "John Doe",
-            email: formData.email,
-            avatar: null,
-        }));
-        navigate("/");
+        setIsLoading(true);
+
+        try {
+            const response = await api.post("/auth/login", formData);
+            if (response.data.success) {
+                toast.success("Logged in successfully");
+                // We can store user info in context or local storage for UI display, 
+                // but auth is handled by httpOnly cookie
+                localStorage.setItem("user", JSON.stringify(response.data.user));
+                navigate("/");
+            }
+        } catch (error) {
+            console.error("Login error:", error);
+            toast.error(error.response?.data?.message || "Failed to login");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

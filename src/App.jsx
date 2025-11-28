@@ -15,6 +15,7 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import Home from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -23,7 +24,12 @@ const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated");
   const location = useLocation();
 
-  if (!isAuthenticated) {
+  // Check if user is authenticated (either by localStorage flag or user object)
+  // Since we are using cookies, we might need a better check, but for now let's stick to what was there
+  // or check if 'user' exists in localStorage as we set it on login
+  const user = localStorage.getItem("user");
+
+  if (!user && !isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -33,8 +39,9 @@ const ProtectedRoute = ({ children }) => {
 // Auth Route Component (redirects to home if already logged in)
 const AuthRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated");
+  const user = localStorage.getItem("user");
 
-  if (isAuthenticated) {
+  if (user || isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
@@ -69,6 +76,16 @@ const App = () => (
           {/* Protected Routes */}
           <Route
             path="/"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Home />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
             element={
               <ProtectedRoute>
                 <AppLayout>
