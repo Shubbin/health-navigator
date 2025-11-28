@@ -11,6 +11,8 @@ import medicationRoutes from "./routes/medication.route.js";
 import chatRoutes from "./routes/chat.route.js";
 import userRoutes from "./routes/users.route.js";
 import readingLogRoutes from "./routes/readingLog.route.js";
+import settingsRoutes from "./routes/settings.route.js";
+import articleRoutes from "./routes/article.route.js";
 
 // DB Connection
 import { connectDB } from "./db/connectDb.js";
@@ -41,6 +43,8 @@ app.use("/api/medications", medicationRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reading-history", readingLogRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/articles", articleRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

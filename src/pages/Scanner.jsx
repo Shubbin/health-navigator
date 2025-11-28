@@ -60,6 +60,7 @@ const Scanner = () => {
     return () => {
       stopCamera();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanType, scanComplete]);
 
   const startCamera = async () => {
@@ -138,7 +139,7 @@ const Scanner = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-6xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-6 sm:mb-8 animate-fade-in">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
@@ -156,7 +157,7 @@ const Scanner = () => {
 
         {/* Scan Type Selection */}
         {!scanType && (
-          <div className="max-w-5xl mx-auto animate-slide-in">
+          <div className="max-w-4xl mx-auto animate-slide-in">
             <div className="text-center mb-6 sm:mb-8">
               <h2 className="text-xl sm:text-2xl font-semibold mb-2">Choose Your Scan Type</h2>
               <p className="text-sm sm:text-base text-muted-foreground">Select the area you'd like to analyze</p>
@@ -171,8 +172,8 @@ const Scanner = () => {
                 >
                   <div className={`absolute inset-0 bg-gradient-to-br ${type.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                   <CardHeader className="relative z-10 p-4 sm:p-6">
-                    <div className={`h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 rounded-2xl ${type.iconBg} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto`}>
-                      <type.icon className={`h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 ${type.iconColor}`} />
+                    <div className={`h-12 w-12 sm:h-14 sm:w-14 rounded-2xl ${type.iconBg} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto`}>
+                      <type.icon className={`h-6 w-6 sm:h-7 sm:w-7 ${type.iconColor}`} />
                     </div>
                     <CardTitle className="text-center group-hover:text-primary transition-colors text-lg sm:text-xl">{type.name}</CardTitle>
                     <CardDescription className="text-center text-xs sm:text-sm">{type.description}</CardDescription>
@@ -191,7 +192,7 @@ const Scanner = () => {
 
         {/* Scanning Interface */}
         {scanType && !scanComplete && (
-          <div className="max-w-4xl mx-auto animate-slide-in">
+          <div className="max-w-3xl mx-auto animate-slide-in">
             <Card className="border-none shadow-2xl bg-card/50 backdrop-blur overflow-hidden">
               <CardHeader className={`bg-gradient-to-r ${selectedScanType?.gradient} text-white p-4 sm:p-6`}>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
@@ -293,7 +294,7 @@ const Scanner = () => {
 
                 {/* Actions */}
                 <div className="flex gap-3">
-                  {!isScanning && (
+                  {!isScanning ? (
                     <Button
                       onClick={startScan}
                       className={`flex-1 bg-gradient-to-r ${selectedScanType?.gradient} hover:opacity-90 text-white shadow-lg text-sm sm:text-base`}
@@ -309,6 +310,18 @@ const Scanner = () => {
                         "Waiting for camera..."
                       )}
                     </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        setIsScanning(false);
+                        setConfidence(0);
+                      }}
+                      variant="destructive"
+                      className="flex-1 text-sm sm:text-base"
+                      size="lg"
+                    >
+                      Stop Scan
+                    </Button>
                   )}
                 </div>
               </CardContent>
@@ -318,7 +331,7 @@ const Scanner = () => {
 
         {/* Results */}
         {scanComplete && (
-          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-slide-in">
+          <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-slide-in">
             <Card className="border-none shadow-2xl bg-card/50 backdrop-blur overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 sm:p-6">
                 <div className="flex items-center gap-3">
