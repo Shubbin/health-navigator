@@ -1,0 +1,142 @@
+import GeminiChat from "../ml/js/chat/geminiChat.js";
+import SttWhisper from "../ml/js/speech/sttWhisper.js";
+import TtsOpenAI from "../ml/js/tts/ttsOpenAI.js";
+import { ChatHistory } from "../models/chatHistory.model.js";
+import { HealthScan } from "../models/healthScan.model.js";
+
+const geminiChat = new GeminiChat(process.env.GEMINI_API_KEY);
+const sttWhisper = new SttWhisper(process.env.OPENAI_API_KEY);
+const ttsOpenAI = new TtsOpenAI(process.env.OPENAI_API_KEY);
+
+export const chat = async (req, res) => {
+    try {
+        const { message, history, language, chatId } = req.body;
+        const userId = req.userId; // From verifyToken middleware
+
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ success: false, message: "Gemini API key not configured" });
+        }
+
+        // Get AI Response
+        const responseText = await geminiChat.sendMessage(history || [], message, language || 'en');
+
+        // Save to Database
+        let chatEntry;
+        const newMessages = [
+            { sender: "user", text: message, timestamp: new Date() },
+            { sender: "ai", text: responseText, timestamp: new Date() }
+        ];
+
+        if (chatId) {
+            // Update existing chat
+            chatEntry = await ChatHistory.findByIdAndUpdate(
+                chatId,
+                {
+                    $push: { messages: { $each: newMessages } },
+                    preview: responseText.substring(0, 50) + "..."
+                },
+                { new: true }
+            );
+        } else {
+            // Create new chat
+            chatEntry = await ChatHistory.create({
+                userId,
+                title: message.substring(0, 30) + "...",
+                messages: newMessages,
+                preview: responseText.substring(0, 50) + "..."
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            response: responseText,
+            chatId: chatEntry._id
+        });
+    } catch (error) {
+        console.error("Error in chat:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const speechToText = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No audio file uploaded" });
+        }
+
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(500).json({ success: false, message: "OpenAI API key not configured" });
+        }
+
+        // Convert buffer to file object for OpenAI
+        // Note: This part depends on how multer handles the file and what OpenAI expects
+        // For simplicity, we'll assume the file path or buffer is handled correctly by the wrapper
+        // In a real implementation, you might need to write to a temp file first
+
+        const transcript = await sttWhisper.transcribe(req.file.buffer);
+
+        res.status(200).json({ success: true, transcript });
+    } catch (error) {
+        console.error("Error in STT:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const textToSpeech = async (req, res) => {
+    try {
+        const { text } = req.body;
+
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(500).json({ success: false, message: "OpenAI API key not configured" });
+        }
+
+        const audioBuffer = await ttsOpenAI.speak(text);
+
+        res.set({
+            'Content-Type': 'audio/mpeg',
+            'Content-Length': audioBuffer.length
+        });
+
+        res.send(audioBuffer);
+    } catch (error) {
+        console.error("Error in TTS:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const analyzeFace = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { scanType } = req.body;
+
+        // Placeholder for actual ML analysis
+        // In a real implementation, we would process req.file here
+
+        const mockResult = {
+            result: "Healthy",
+            confidence: 98,
+            notes: "AI analysis indicates no significant issues. Continue regular hygiene.",
+            status: "success"
+        };
+
+        // Save to Database
+        const scan = await HealthScan.create({
+            userId,
+            scanType: scanType || "eyes", // Default if not provided
+            result: mockResult.result,
+            confidence: mockResult.confidence,
+            notes: mockResult.notes,
+            status: mockResult.status,
+            imageUrl: req.file ? `/uploads/${req.file.filename}` : null // Assuming file storage
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Analysis complete",
+            data: scan
+        });
+    } catch (error) {
+        console.error("Error in analyzeFace:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

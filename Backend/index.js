@@ -13,6 +13,7 @@ import userRoutes from "./routes/users.route.js";
 import readingLogRoutes from "./routes/readingLog.route.js";
 import settingsRoutes from "./routes/settings.route.js";
 import articleRoutes from "./routes/article.route.js";
+import mlRoutes from "./routes/ml.route.js";
 
 // DB Connection
 import { connectDB } from "./db/connectDb.js";
@@ -45,6 +46,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/reading-history", readingLogRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/articles", articleRoutes);
+app.use("/api/ml", mlRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

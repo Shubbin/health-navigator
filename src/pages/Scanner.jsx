@@ -97,42 +97,74 @@ const Scanner = () => {
     setCameraActive(false);
   };
 
-  const startScan = () => {
+  const captureImage = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, "image/jpeg");
+      });
+    }
+    return null;
+  };
+
+  const startScan = async () => {
     setIsScanning(true);
     setScanComplete(false);
     setConfidence(0);
 
-    // Simulate scanning progress
-    const interval = setInterval(async () => {
+    // Simulate scanning progress for UI feedback
+    const interval = setInterval(() => {
       setConfidence((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsScanning(false);
-
-          // Save scan result to backend
-          const saveScan = async () => {
-            try {
-              await api.post("/health-scans", {
-                scanType: scanType,
-                result: "Healthy",
-                confidence: 100,
-                notes: "Automated scan completed successfully",
-                status: "success"
-              });
-              setScanComplete(true);
-              toast.success("Scan saved successfully");
-            } catch (error) {
-              console.error("Error saving scan:", error);
-              toast.error("Failed to save scan result");
-            }
-          };
-
-          saveScan();
-          return 100;
-        }
+        if (prev >= 90) return 90; // Hold at 90% until response
         return prev + 10;
       });
     }, 200);
+
+    try {
+      const imageBlob = await captureImage();
+      if (!imageBlob) {
+        throw new Error("Failed to capture image");
+      }
+
+      const formData = new FormData();
+      formData.append("image", imageBlob);
+      formData.append("scanType", scanType);
+
+      // Call ML endpoint
+      const response = await api.post("/ml/analyze-face", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data.success) {
+        clearInterval(interval);
+        setConfidence(100);
+
+        // Save scan result to history
+        await api.post("/health-scans", {
+          scanType: scanType,
+          result: "Analysis Complete",
+          confidence: 100,
+          notes: response.data.message || "Automated scan completed",
+          status: "success"
+        });
+
+        setScanComplete(true);
+        toast.success("Scan completed successfully");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      console.error("Error performing scan:", error);
+      toast.error("Scan failed. Please try again.");
+      setIsScanning(false);
+    }
   };
 
   const selectedScanType = scanTypes.find((t) => t.id === scanType);

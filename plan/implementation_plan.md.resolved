@@ -1,0 +1,116 @@
+# Health Blog Backend Integration
+
+## Overview
+
+Transform the Blog page into a fully functional health blog with search capabilities, backend integration, article management, and reading history tracking.
+
+## Proposed Changes
+
+### Backend - Database Schema
+
+#### [NEW] [article.model.js](file:///c:/Users/makin/Desktop/health-navigator-pro/Backend/models/article.model.js)
+
+Create Article schema with:
+- **Basic Info**: title, slug, excerpt, content (rich text/markdown)
+- **Metadata**: author, category, tags[], readTime, featured, published
+- **SEO**: metaDescription, metaKeywords
+- **Engagement**: views, likes
+- **Timestamps**: createdAt, updatedAt, publishedAt
+
+---
+
+### Backend - Controllers
+
+#### [NEW] [article.controller.js](file:///c:/Users/makin/Desktop/health-navigator-pro/Backend/controllers/article.controller.js)
+
+Create controller functions:
+- `getArticles`: Fetch articles with pagination, filtering, search
+- `getArticleBySlug`: Get single article by slug
+- `getFeaturedArticles`: Get featured articles
+- `getArticlesByCategory`: Filter by category
+- `searchArticles`: Full-text search across title, excerpt, content
+- `incrementViews`: Track article views
+- `likeArticle`: Like/unlike article
+
+---
+
+### Backend - Routes
+
+#### [NEW] [article.route.js](file:///c:/Users/makin/Desktop/health-navigator-pro/Backend/routes/article.route.js)
+
+Create routes:
+- `GET /api/articles` - List articles (with query params for search, category, pagination)
+- `GET /api/articles/featured` - Get featured articles
+- `GET /api/articles/:slug` - Get article by slug
+- `POST /api/articles/:id/view` - Increment view count
+- `POST /api/articles/:id/like` - Like/unlike article
+
+---
+
+### Backend - Seed Data
+
+#### [NEW] [seedArticles.js](file:///c:/Users/makin/Desktop/health-navigator-pro/Backend/seed/seedArticles.js)
+
+Create seed script with 15-20 health articles covering:
+- Eye Health
+- Dental Health
+- Wellness
+- Preventive Care
+- Mental Health
+- Nutrition
+- Exercise
+
+---
+
+### Frontend - Blog Page
+
+#### [MODIFY] [Blog.jsx](file:///c:/Users/makin/Desktop/health-navigator-pro/src/pages/Blog.jsx)
+
+Complete redesign with:
+
+**Features:**
+1. **Search Bar**: Real-time search with debouncing
+2. **Category Filters**: Filter by category with active states
+3. **Featured Section**: Showcase featured article(s)
+4. **Article Grid**: Responsive grid with pagination
+5. **Article Cards**: Beautiful cards with hover effects, images, metadata
+6. **Loading States**: Skeleton loaders
+7. **Empty States**: When no articles found
+8. **Reading History**: Track when user clicks "Read More"
+
+**UI Enhancements:**
+- Gradient backgrounds
+- Glass-morphism effects
+- Smooth animations
+- Hover effects
+- Tag clouds
+- View counts
+- Like buttons
+- Share buttons
+
+---
+
+### Frontend - Article Detail Page
+
+#### [NEW] [ArticleDetail.jsx](file:///c:/Users/makin/Desktop/health-navigator-pro/src/pages/ArticleDetail.jsx)
+
+Create dedicated article page with:
+- Full article content
+- Author info
+- Related articles
+- Like/share buttons
+- Reading progress indicator
+- Table of contents (if long article)
+- Comments section (future)
+
+---
+
+## Verification Plan
+
+### Manual Verification
+1. **Search**: Search for keywords, verify results
+2. **Filters**: Test category filtering
+3. **Pagination**: Navigate through pages
+4. **Reading History**: Click article, verify it's logged
+5. **Responsive**: Test on mobile, tablet, desktop
+6. **Performance**: Verify fast loading with many articles

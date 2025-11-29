@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, Mic, MicOff } from "lucide-react";
+import { Send, Bot, User, Sparkles, Mic, MicOff, Volume2, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,9 +20,22 @@ const ChatInterface = ({ className, embedded = false }) => {
     const [isTyping, setIsTyping] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [currentChatId, setCurrentChatId] = useState(null);
+    const [selectedLanguage, setSelectedLanguage] = useState('en-US');
     const scrollRef = useRef(null);
     const textareaRef = useRef(null);
     const recognitionRef = useRef(null);
+
+    const languages = [
+        { code: 'en-US', name: 'English' },
+        { code: 'es-ES', name: 'Spanish' },
+        { code: 'fr-FR', name: 'French' },
+        { code: 'de-DE', name: 'German' },
+        { code: 'zh-CN', name: 'Chinese' },
+        { code: 'ar-SA', name: 'Arabic' },
+        { code: 'hi-IN', name: 'Hindi' },
+        { code: 'pt-BR', name: 'Portuguese' },
+        { code: 'yo-NG', name: 'Yoruba' },
+    ];
 
     const quickPrompts = [
         "I have a headache and eye strain",
@@ -38,7 +51,7 @@ const ChatInterface = ({ className, embedded = false }) => {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = false;
             recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'en-US';
+            recognitionRef.current.lang = selectedLanguage;
 
             recognitionRef.current.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
@@ -56,7 +69,7 @@ const ChatInterface = ({ className, embedded = false }) => {
                 setIsListening(false);
             };
         }
-    }, []);
+    }, [selectedLanguage]);
 
     // Load chat history on mount
     useEffect(() => {
@@ -145,25 +158,68 @@ const ChatInterface = ({ className, embedded = false }) => {
         setInputValue("");
         setIsTyping(true);
 
-        // Save user message immediately
-        await saveChatToBackend(updatedMessages);
+        try {
+            // Call ML Chat Endpoint
+            // Filter out the initial welcome message (first AI message)
+            const conversationHistory = messages.slice(1).map(m => ({
+                role: m.sender === "user" ? "user" : "model",
+                parts: [{ text: m.text }]
+            }));
 
-        // Simulate AI response
-        setTimeout(async () => {
-            const aiResponse = {
+            const response = await api.post("/ml/chat", {
+                message: inputValue,
+                history: conversationHistory,
+                language: "en",
+                chatId: currentChatId
+            });
+
+            if (response.data.success) {
+                const aiResponse = {
+                    id: Date.now() + 1,
+                    sender: "ai",
+                    text: response.data.response,
+                    timestamp: new Date().toISOString(),
+                };
+
+                const finalMessages = [...updatedMessages, aiResponse];
+                setMessages(finalMessages);
+                setIsTyping(false);
+
+                // Update chat ID if this was a new chat
+                if (response.data.chatId) {
+                    setCurrentChatId(response.data.chatId);
+                }
+
+                // Save AI response
+                await saveChatToBackend(finalMessages);
+            }
+        } catch (error) {
+            console.error("Error getting AI response:", error);
+            setIsTyping(false);
+            toast.error("Failed to get response from AI");
+
+            // Fallback message
+            const errorMessage = {
                 id: Date.now() + 1,
                 sender: "ai",
-                text: "Thank you for sharing that. Based on what you've told me, I'd recommend monitoring your symptoms. If they persist or worsen, please consult a healthcare professional. Would you like me to help you find relevant articles or schedule a health scan?",
+                text: "I'm having trouble connecting right now. Please try again later.",
                 timestamp: new Date().toISOString(),
             };
+            setMessages([...updatedMessages, errorMessage]);
+        }
+    };
 
-            const finalMessages = [...updatedMessages, aiResponse];
-            setMessages(finalMessages);
-            setIsTyping(false);
-
-            // Save AI response
-            await saveChatToBackend(finalMessages);
-        }, 1500);
+    const speakText = (text) => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = selectedLanguage;
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+            toast.success('Speaking...');
+        } else {
+            toast.error('Text-to-speech not supported in your browser');
+        }
     };
 
     const handleKeyDown = (e) => {
@@ -177,13 +233,27 @@ const ChatInterface = ({ className, embedded = false }) => {
         <div className={cn("flex flex-col h-full bg-background", className)}>
             {/* Chat Header */}
             <div className="border-b px-6 py-4 bg-card">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                        <Sparkles className="h-5 w-5 text-primary-foreground" />
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-primary-foreground" />
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-semibold">AI Health Assistant</h1>
+                            <p className="text-sm text-muted-foreground">Always here to help</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-lg font-semibold">AI Health Assistant</h1>
-                        <p className="text-sm text-muted-foreground">Always here to help</p>
+                    <div className="flex items-center gap-2">
+                        <Languages className="h-4 w-4 text-muted-foreground" />
+                        <select
+                            value={selectedLanguage}
+                            onChange={(e) => setSelectedLanguage(e.target.value)}
+                            className="text-sm border rounded-lg px-2 py-1 bg-background"
+                        >
+                            {languages.map(lang => (
+                                <option key={lang.code} value={lang.code}>{lang.name}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -242,21 +312,32 @@ const ChatInterface = ({ className, embedded = false }) => {
                             <div className={cn("flex-1", message.sender === "user" && "flex justify-end")}>
                                 <div
                                     className={cn(
-                                        "rounded-2xl px-5 py-3 max-w-[85%]",
+                                        "rounded-2xl px-5 py-3 max-w-[85%] group relative",
                                         message.sender === "ai"
                                             ? "bg-muted"
                                             : "bg-primary text-primary-foreground"
                                     )}
                                 >
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
-                                    <p
-                                        className={cn(
-                                            "text-xs mt-2",
-                                            message.sender === "ai" ? "text-muted-foreground" : "text-primary-foreground/70"
+                                    <div className="flex items-center justify-between mt-2">
+                                        <p
+                                            className={cn(
+                                                "text-xs",
+                                                message.sender === "ai" ? "text-muted-foreground" : "text-primary-foreground/70"
+                                            )}
+                                        >
+                                            {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                        </p>
+                                        {message.sender === "ai" && (
+                                            <button
+                                                onClick={() => speakText(message.text)}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-background/10 rounded"
+                                                title="Read aloud"
+                                            >
+                                                <Volume2 className="h-3 w-3" />
+                                            </button>
                                         )}
-                                    >
-                                        {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
