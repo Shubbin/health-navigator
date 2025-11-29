@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import ChatSidebar from "./ChatSidebar";
 
 const ChatInterface = ({ className, embedded = false }) => {
     const [messages, setMessages] = useState([
@@ -49,49 +50,99 @@ const ChatInterface = ({ className, embedded = false }) => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = false;
+            recognitionRef.current.continuous = true; // Keep listening until stopped
+            recognitionRef.current.interimResults = true; // Show interim results
             recognitionRef.current.lang = selectedLanguage;
 
+            let finalTranscript = '';
+
             recognitionRef.current.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                setInputValue(transcript);
-                setIsListening(false);
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                // Update input with both final and interim results
+                setInputValue(finalTranscript + interimTranscript);
             };
 
             recognitionRef.current.onerror = (event) => {
                 console.error('Speech recognition error:', event.error);
                 setIsListening(false);
-                toast.error('Voice input error. Please try again.');
+
+                // Provide user-friendly error messages
+                switch (event.error) {
+                    case 'network':
+                        toast.error('Speech recognition requires internet connection');
+                        break;
+                    case 'not-allowed':
+                        toast.error('Microphone access denied. Please allow microphone permissions.');
+                        break;
+                    case 'no-speech':
+                        toast.warning('No speech detected. Please try again.');
+                        break;
+                    case 'aborted':
+                        // User stopped it, no need to show error
+                        break;
+                    default:
+                        toast.error('Voice input error. Please try again.');
+                }
             };
 
             recognitionRef.current.onend = () => {
                 setIsListening(false);
+                finalTranscript = ''; // Reset for next session
             };
         }
     }, [selectedLanguage]);
 
     // Load chat history on mount
     useEffect(() => {
-        const loadChatHistory = async () => {
-            try {
-                const response = await api.get("/chats");
-                if (response.data.success && response.data.chats.length > 0) {
-                    // Load the most recent chat
-                    const latestChat = response.data.chats[0];
-                    // We need to fetch the full details of this chat to get messages
-                    const chatDetail = await api.get(`/chats/${latestChat._id}`);
-                    if (chatDetail.data.success) {
-                        setMessages(chatDetail.data.chat.messages);
-                        setCurrentChatId(latestChat._id);
-                    }
-                }
-            } catch (error) {
-                console.error("Error loading chat history:", error);
-            }
-        };
-        loadChatHistory();
+        if (currentChatId) {
+            loadChat(currentChatId);
+        }
     }, []);
+
+    const loadChat = async (chatId) => {
+        try {
+            const response = await api.get(`/chats/${chatId}`);
+            if (response.data.success) {
+                const chatMessages = response.data.chat.messages;
+                // Use actual messages from database
+                setMessages(chatMessages.length > 0 ? chatMessages : [
+                    {
+                        id: 1,
+                        sender: "ai",
+                        text: "Hello! I'm your AI health assistant. How can I help you today?",
+                        timestamp: new Date().toISOString(),
+                    }
+                ]);
+                setCurrentChatId(chatId);
+            }
+        } catch (error) {
+            console.error("Error loading chat:", error);
+            toast.error("Failed to load chat");
+        }
+    };
+
+    const handleNewChat = () => {
+        setMessages([
+            {
+                id: 1,
+                sender: "ai",
+                text: "Hello! I'm your AI health assistant. How can I help you today?",
+                timestamp: new Date().toISOString(),
+            },
+        ]);
+        setCurrentChatId(null);
+        setInputValue("");
+    };
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -110,11 +161,30 @@ const ChatInterface = ({ className, embedded = false }) => {
             setIsListening(false);
         } else {
             try {
-                recognitionRef.current.start();
-                setIsListening(true);
-                toast.success('Listening... Speak now');
+                // Stop any previous recognition
+                try {
+                    recognitionRef.current.stop();
+                } catch (e) {
+                    // Ignore if already stopped
+                }
+
+                // Small delay before starting to avoid conflicts
+                setTimeout(() => {
+                    try {
+                        recognitionRef.current.start();
+                        setIsListening(true);
+                        // Removed toast - visual feedback from button animation is enough
+                    } catch (error) {
+                        console.error('Error starting recognition:', error);
+                        if (error.message.includes('already started')) {
+                            toast.warning('Voice recognition already active');
+                        } else {
+                            toast.error('Could not start voice input. Please try again.');
+                        }
+                    }
+                }, 100);
             } catch (error) {
-                console.error('Error starting recognition:', error);
+                console.error('Error in toggleVoiceInput:', error);
                 toast.error('Could not start voice input');
             }
         }
@@ -230,177 +300,189 @@ const ChatInterface = ({ className, embedded = false }) => {
     };
 
     return (
-        <div className={cn("flex flex-col h-full bg-background", className)}>
-            {/* Chat Header */}
-            <div className="border-b px-6 py-4 bg-card">
-                <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                            <Sparkles className="h-5 w-5 text-primary-foreground" />
+        <div className={cn("flex h-full bg-background", className)}>
+            {/* Sidebar */}
+            {!embedded && (
+                <ChatSidebar
+                    currentChatId={currentChatId}
+                    onSelectChat={loadChat}
+                    onNewChat={handleNewChat}
+                />
+            )}
+
+            {/* Main Chat Area */}
+            <div className="flex flex-col flex-1 h-full">
+                {/* Chat Header */}
+                <div className="border-b px-6 py-4 bg-card">
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                                <Sparkles className="h-5 w-5 text-primary-foreground" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-semibold">AI Health Assistant</h1>
+                                <p className="text-sm text-muted-foreground">Always here to help</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-lg font-semibold">AI Health Assistant</h1>
-                            <p className="text-sm text-muted-foreground">Always here to help</p>
+                        <div className="flex items-center gap-2">
+                            <Languages className="h-4 w-4 text-muted-foreground" />
+                            <select
+                                value={selectedLanguage}
+                                onChange={(e) => setSelectedLanguage(e.target.value)}
+                                className="text-sm border rounded-lg px-2 py-1 bg-background"
+                            >
+                                {languages.map(lang => (
+                                    <option key={lang.code} value={lang.code}>{lang.name}</option>
+                                ))}
+                            </select>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Languages className="h-4 w-4 text-muted-foreground" />
-                        <select
-                            value={selectedLanguage}
-                            onChange={(e) => setSelectedLanguage(e.target.value)}
-                            className="text-sm border rounded-lg px-2 py-1 bg-background"
-                        >
-                            {languages.map(lang => (
-                                <option key={lang.code} value={lang.code}>{lang.name}</option>
-                            ))}
-                        </select>
                     </div>
                 </div>
-            </div>
 
-            {/* Messages Container */}
-            <ScrollArea className="flex-1 px-4" ref={scrollRef}>
-                <div className={cn("mx-auto py-8 space-y-6", embedded ? "max-w-full" : "max-w-3xl")}>
-                    {messages.length === 1 && (
-                        <div className="text-center space-y-4 py-12">
-                            <div className="inline-flex h-16 w-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 items-center justify-center mb-4">
-                                <Bot className="h-8 w-8 text-primary" />
+                {/* Messages Container */}
+                <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+                    <div className={cn("mx-auto py-8 space-y-6", embedded ? "max-w-full" : "max-w-3xl")}>
+                        {messages.length === 1 && (
+                            <div className="text-center space-y-4 py-12">
+                                <div className="inline-flex h-16 w-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 items-center justify-center mb-4">
+                                    <Bot className="h-8 w-8 text-primary" />
+                                </div>
+                                <h2 className="text-2xl font-semibold">How can I assist you today?</h2>
+                                <p className="text-muted-foreground">Ask me anything about your health and wellness</p>
+
+                                {/* Quick Prompts */}
+                                <div className={cn("grid gap-3 mt-8 mx-auto", embedded ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2 max-w-2xl")}>
+                                    {quickPrompts.map((prompt, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setInputValue(prompt)}
+                                            className="p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-accent transition-all text-left group"
+                                        >
+                                            <p className="text-sm group-hover:text-primary transition-colors">{prompt}</p>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <h2 className="text-2xl font-semibold">How can I assist you today?</h2>
-                            <p className="text-muted-foreground">Ask me anything about your health and wellness</p>
+                        )}
 
-                            {/* Quick Prompts */}
-                            <div className={cn("grid gap-3 mt-8 mx-auto", embedded ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2 max-w-2xl")}>
-                                {quickPrompts.map((prompt, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => setInputValue(prompt)}
-                                        className="p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-accent transition-all text-left group"
-                                    >
-                                        <p className="text-sm group-hover:text-primary transition-colors">{prompt}</p>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {messages.slice(1).map((message) => (
-                        <div
-                            key={message.id}
-                            className={cn(
-                                "flex gap-4 animate-in fade-in-50 slide-in-from-bottom-4",
-                                message.sender === "user" && "flex-row-reverse"
-                            )}
-                        >
-                            {/* Avatar */}
+                        {messages.slice(1).map((message) => (
                             <div
+                                key={message.id}
                                 className={cn(
-                                    "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
-                                    message.sender === "ai"
-                                        ? "bg-gradient-to-br from-primary to-primary/60"
-                                        : "bg-secondary"
+                                    "flex gap-4 animate-in fade-in-50 slide-in-from-bottom-4",
+                                    message.sender === "user" && "flex-row-reverse"
                                 )}
                             >
-                                {message.sender === "ai" ? (
-                                    <Bot className="h-4 w-4 text-primary-foreground" />
-                                ) : (
-                                    <User className="h-4 w-4 text-secondary-foreground" />
-                                )}
-                            </div>
-
-                            {/* Message Content */}
-                            <div className={cn("flex-1", message.sender === "user" && "flex justify-end")}>
+                                {/* Avatar */}
                                 <div
                                     className={cn(
-                                        "rounded-2xl px-5 py-3 max-w-[85%] group relative",
+                                        "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
                                         message.sender === "ai"
-                                            ? "bg-muted"
-                                            : "bg-primary text-primary-foreground"
+                                            ? "bg-gradient-to-br from-primary to-primary/60"
+                                            : "bg-secondary"
                                     )}
                                 >
-                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
-                                    <div className="flex items-center justify-between mt-2">
-                                        <p
-                                            className={cn(
-                                                "text-xs",
-                                                message.sender === "ai" ? "text-muted-foreground" : "text-primary-foreground/70"
-                                            )}
-                                        >
-                                            {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                        </p>
-                                        {message.sender === "ai" && (
-                                            <button
-                                                onClick={() => speakText(message.text)}
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-background/10 rounded"
-                                                title="Read aloud"
-                                            >
-                                                <Volume2 className="h-3 w-3" />
-                                            </button>
+                                    {message.sender === "ai" ? (
+                                        <Bot className="h-4 w-4 text-primary-foreground" />
+                                    ) : (
+                                        <User className="h-4 w-4 text-secondary-foreground" />
+                                    )}
+                                </div>
+
+                                {/* Message Content */}
+                                <div className={cn("flex-1", message.sender === "user" && "flex justify-end")}>
+                                    <div
+                                        className={cn(
+                                            "rounded-2xl px-5 py-3 max-w-[85%] group relative",
+                                            message.sender === "ai"
+                                                ? "bg-muted"
+                                                : "bg-primary text-primary-foreground"
                                         )}
+                                    >
+                                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
+                                        <div className="flex items-center justify-between mt-2">
+                                            <p
+                                                className={cn(
+                                                    "text-xs",
+                                                    message.sender === "ai" ? "text-muted-foreground" : "text-primary-foreground/70"
+                                                )}
+                                            >
+                                                {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                            </p>
+                                            {message.sender === "ai" && (
+                                                <button
+                                                    onClick={() => speakText(message.text)}
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-background/10 rounded"
+                                                    title="Read aloud"
+                                                >
+                                                    <Volume2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
 
-                    {/* Typing Indicator */}
-                    {isTyping && (
-                        <div className="flex gap-4 animate-in fade-in-50">
-                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                                <Bot className="h-4 w-4 text-primary-foreground" />
-                            </div>
-                            <div className="bg-muted rounded-2xl px-5 py-3">
-                                <div className="flex gap-1">
-                                    <div className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" />
-                                    <div className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce delay-100" />
-                                    <div className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce delay-200" />
+                        {/* Typing Indicator */}
+                        {isTyping && (
+                            <div className="flex gap-4 animate-in fade-in-50">
+                                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                                    <Bot className="h-4 w-4 text-primary-foreground" />
+                                </div>
+                                <div className="bg-muted rounded-2xl px-5 py-3">
+                                    <div className="flex gap-1">
+                                        <div className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" />
+                                        <div className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce delay-100" />
+                                        <div className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce delay-200" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </ScrollArea>
-
-            {/* Input Area */}
-            <div className="border-t bg-card px-4 py-4">
-                <div className={cn("mx-auto", embedded ? "max-w-full" : "max-w-3xl")}>
-                    <div className="flex gap-3 items-end">
-                        <div className="flex-1 relative">
-                            <Textarea
-                                ref={textareaRef}
-                                value={inputValue}
-                                onChange={(e) => setInputValue(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder="Message AI..."
-                                className="min-h-[52px] max-h-[200px] resize-none pr-12 rounded-2xl"
-                                rows={1}
-                            />
-                        </div>
-                        <Button
-                            onClick={toggleVoiceInput}
-                            disabled={isTyping}
-                            size="icon"
-                            variant={isListening ? "default" : "outline"}
-                            className={cn(
-                                "h-[52px] w-[52px] rounded-2xl transition-all",
-                                isListening && "animate-pulse"
-                            )}
-                            title={isListening ? "Stop listening" : "Start voice input"}
-                        >
-                            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                        </Button>
-                        <Button
-                            onClick={handleSend}
-                            disabled={!inputValue.trim() || isTyping}
-                            size="icon"
-                            className="h-[52px] w-[52px] rounded-2xl"
-                        >
-                            <Send className="h-5 w-5" />
-                        </Button>
+                        )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                        AI can make mistakes. Consult a professional.
-                    </p>
+                </ScrollArea>
+
+                {/* Input Area */}
+                <div className="border-t bg-card px-4 py-4">
+                    <div className={cn("mx-auto", embedded ? "max-w-full" : "max-w-3xl")}>
+                        <div className="flex gap-3 items-end">
+                            <div className="flex-1 relative">
+                                <Textarea
+                                    ref={textareaRef}
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Message AI..."
+                                    className="min-h-[52px] max-h-[200px] resize-none pr-12 rounded-2xl"
+                                    rows={1}
+                                />
+                            </div>
+                            <Button
+                                onClick={toggleVoiceInput}
+                                disabled={isTyping}
+                                size="icon"
+                                variant={isListening ? "default" : "outline"}
+                                className={cn(
+                                    "h-[52px] w-[52px] rounded-2xl transition-all",
+                                    isListening && "animate-pulse"
+                                )}
+                                title={isListening ? "Stop listening" : "Start voice input"}
+                            >
+                                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                            </Button>
+                            <Button
+                                onClick={handleSend}
+                                disabled={!inputValue.trim() || isTyping}
+                                size="icon"
+                                className="h-[52px] w-[52px] rounded-2xl"
+                            >
+                                <Send className="h-5 w-5" />
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                            AI can make mistakes. Consult a professional.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

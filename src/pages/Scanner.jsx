@@ -17,6 +17,7 @@ const Scanner = () => {
   const [confidence, setConfidence] = useState(0);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const [scanResult, setScanResult] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -146,15 +147,9 @@ const Scanner = () => {
       if (response.data.success) {
         clearInterval(interval);
         setConfidence(100);
+        setScanResult(response.data.data);
 
-        // Save scan result to history
-        await api.post("/health-scans", {
-          scanType: scanType,
-          result: "Analysis Complete",
-          confidence: 100,
-          notes: response.data.message || "Automated scan completed",
-          status: "success"
-        });
+        // Save scan result to history (already done in backend, just need to update UI)
 
         setScanComplete(true);
         toast.success("Scan completed successfully");
@@ -378,14 +373,14 @@ const Scanner = () => {
               </CardHeader>
               <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                 {/* Overall Status */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 sm:p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl sm:rounded-2xl border border-green-500/20">
+                <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 sm:p-6 rounded-xl sm:rounded-2xl border ${scanResult?.result === 'Healthy' ? 'bg-green-500/10 border-green-500/20' : 'bg-yellow-500/10 border-yellow-500/20'}`}>
                   <div>
                     <p className="text-base sm:text-lg font-semibold mb-1">Overall Health Status</p>
                     <p className="text-xs sm:text-sm text-muted-foreground">Based on AI analysis</p>
                   </div>
-                  <Badge className="bg-green-500 text-white text-sm sm:text-base lg:text-lg px-3 sm:px-4 py-1.5 sm:py-2 shadow-lg">
-                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                    Healthy
+                  <Badge className={`${scanResult?.result === 'Healthy' ? 'bg-green-500' : 'bg-yellow-500'} text-white text-sm sm:text-base lg:text-lg px-3 sm:px-4 py-1.5 sm:py-2 shadow-lg`}>
+                    {scanResult?.result === 'Healthy' ? <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" /> : <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />}
+                    {scanResult?.result || 'Analysis Complete'}
                   </Badge>
                 </div>
 
@@ -398,29 +393,25 @@ const Scanner = () => {
                   <Alert className="border-blue-500/20 bg-blue-500/5">
                     <Info className="h-4 w-4 text-blue-500" />
                     <AlertDescription className="text-xs sm:text-sm">
-                      <strong className="text-blue-600">Minor redness detected:</strong> Consider using eye drops and reducing screen time.
-                      Consult an optometrist if symptoms persist.
+                      {scanResult?.notes}
                     </AlertDescription>
                   </Alert>
                 </div>
 
                 {/* Recommendations */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-base sm:text-lg">Recommended Actions</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    {[
-                      "Rest your eyes every 20 minutes",
-                      "Stay hydrated throughout the day",
-                      "Use lubricating eye drops",
-                      "Schedule a checkup if symptoms worsen"
-                    ].map((tip, i) => (
-                      <div key={i} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 rounded-lg">
-                        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-xs sm:text-sm">{tip}</span>
-                      </div>
-                    ))}
+                {scanResult?.recommendations && scanResult.recommendations.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-base sm:text-lg">Recommended Actions</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                      {scanResult.recommendations.map((tip, i) => (
+                        <div key={i} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 rounded-lg">
+                          <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs sm:text-sm">{tip}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-2 sm:pt-4">

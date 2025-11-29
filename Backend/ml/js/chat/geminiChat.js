@@ -18,6 +18,18 @@ class GeminiChat {
         const result = await chat.sendMessage(prompt);
         return result.response.text();
     }
+
+    async analyzeImage(imageBuffer, mimeType, prompt) {
+        const imagePart = {
+            inlineData: {
+                data: imageBuffer.toString('base64'),
+                mimeType: mimeType
+            },
+        };
+
+        const result = await this.model.generateContent([prompt, imagePart]);
+        return result.response.text();
+    }
 }
 
 export default GeminiChat;

@@ -109,31 +109,75 @@ export const analyzeFace = async (req, res) => {
         const userId = req.userId;
         const { scanType } = req.body;
 
-        // Placeholder for actual ML analysis
-        // In a real implementation, we would process req.file here
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No image uploaded" });
+        }
 
-        const mockResult = {
-            result: "Healthy",
-            confidence: 98,
-            notes: "AI analysis indicates no significant issues. Continue regular hygiene.",
-            status: "success"
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ success: false, message: "Gemini API key not configured" });
+        }
+
+        // Construct prompt based on scan type
+        const prompts = {
+            eyes: "Analyze this eye image for redness, jaundice, or other visible conditions.",
+            teeth: "Analyze this dental image for plaque, cavities, or gum issues.",
+            skin: "Analyze this skin image for rashes, moles, or dermatological concerns."
         };
+
+        const specificPrompt = prompts[scanType] || "Analyze this medical image for health concerns.";
+
+        const fullPrompt = `${specificPrompt} Act as a professional medical AI assistant.
+        IMPORTANT: Return ONLY a valid JSON object with this exact structure (no markdown, no backticks):
+        {
+            "result": "Healthy" or "Concern",
+            "confidence": number between 70-99,
+            "notes": "Brief, professional medical observation (max 2 sentences)",
+            "recommendations": ["Action 1", "Action 2", "Action 3"]
+        }`;
+
+        // Call Gemini Vision
+        const jsonResponse = await geminiChat.analyzeImage(
+            req.file.buffer,
+            req.file.mimetype,
+            fullPrompt
+        );
+
+        // Parse JSON response
+        let analysis;
+        try {
+            // Clean up any potential markdown formatting
+            const cleanJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            analysis = JSON.parse(cleanJson);
+        } catch (e) {
+            console.error("Failed to parse Gemini response:", jsonResponse);
+            // Fallback if parsing fails
+            analysis = {
+                result: "Analysis Complete",
+                confidence: 85,
+                notes: jsonResponse.substring(0, 200),
+                recommendations: ["Consult a healthcare provider for detailed assessment"]
+            };
+        }
 
         // Save to Database
         const scan = await HealthScan.create({
             userId,
-            scanType: scanType || "eyes", // Default if not provided
-            result: mockResult.result,
-            confidence: mockResult.confidence,
-            notes: mockResult.notes,
-            status: mockResult.status,
-            imageUrl: req.file ? `/uploads/${req.file.filename}` : null // Assuming file storage
+            scanType: scanType || "eyes",
+            result: analysis.result,
+            confidence: analysis.confidence,
+            notes: analysis.notes,
+            status: "success",
+            // In a real app we'd save the file path, but for now we'll skip saving the image to disk to save space
+            // imageUrl: `/uploads/${req.file.filename}` 
         });
 
         res.status(200).json({
             success: true,
             message: "Analysis complete",
-            data: scan
+            data: {
+                ...scan.toObject(),
+                recommendations: analysis.recommendations // Pass recommendations to frontend (even if not in DB schema yet)
+            }
         });
     } catch (error) {
         console.error("Error in analyzeFace:", error);
