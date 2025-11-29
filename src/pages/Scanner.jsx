@@ -66,6 +66,11 @@ const Scanner = () => {
 
   const startCamera = async () => {
     try {
+      // Check if browser supports mediaDevices
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported in this browser");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
@@ -76,14 +81,26 @@ const Scanner = () => {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Wait for video to load
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().catch(e => console.error("Error playing video:", e));
+          setCameraActive(true);
+          setCameraError(null);
+        };
         streamRef.current = stream;
-        setCameraActive(true);
-        setCameraError(null);
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
-      setCameraError("Unable to access camera. Please check permissions.");
-      toast.error("Camera access denied. Please allow camera permissions.");
+      let errorMessage = "Unable to access camera.";
+      if (error.name === 'NotAllowedError') {
+        errorMessage = "Camera permission denied. Please allow access.";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = "No camera found on this device.";
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = "Camera is in use by another application.";
+      }
+      setCameraError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 

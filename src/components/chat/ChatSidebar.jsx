@@ -79,10 +79,10 @@ const ChatSidebar = ({ currentChatId, onSelectChat, onNewChat }) => {
     const groups = groupChatsByDate();
 
     const ChatItem = ({ chat }) => (
-        <button
+        <div
             onClick={() => onSelectChat(chat._id)}
             className={cn(
-                "w-full text-left px-3 py-2 rounded-lg hover:bg-accent transition-colors group flex items-center justify-between",
+                "w-full text-left px-3 py-2 rounded-lg hover:bg-accent transition-colors group flex items-center justify-between cursor-pointer",
                 currentChatId === chat._id && "bg-accent"
             )}
         >
@@ -96,7 +96,7 @@ const ChatSidebar = ({ currentChatId, onSelectChat, onNewChat }) => {
             >
                 <Trash2 className="h-3 w-3 text-destructive" />
             </button>
-        </button>
+        </div>
     );
 
     return (

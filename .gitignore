@@ -24,4 +24,6 @@ dist-ssr
 *.sw?
  
 # Ignore backend secret env
+.env
+.env.*
 /Backend/.env
